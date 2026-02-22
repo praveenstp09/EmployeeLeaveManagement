@@ -14,7 +14,7 @@ namespace EmpLeave.Services
                 ?? throw new ArgumentNullException("Jwt:Secret is not configured");
         }
 
-        public string GenerateToken(int UserId)
+        public string GenerateToken(int EmployeeId, string Email, string UserName)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_Secret);
@@ -22,7 +22,9 @@ namespace EmpLeave.Services
             {
                 Subject = new ClaimsIdentity(new[]
                 {
-                    new Claim("id",UserId.ToString())
+                    new Claim("id",EmployeeId.ToString()),
+                    new Claim("email",Email),
+                    new Claim("userName",UserName)
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(60),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -46,10 +48,10 @@ namespace EmpLeave.Services
                     ClockSkew = TimeSpan.Zero
                 }, out SecurityToken validatedToken);
                 var jwtToken = (JwtSecurityToken)validatedToken;
-                var userIdStr = jwtToken.Claims.First(x => x.Type == "id").Value;
-                if (int.TryParse(userIdStr, out int userId))
+                var employeeIdStr = jwtToken.Claims.First(x => x.Type == "id").Value;
+                if (int.TryParse(employeeIdStr, out int employeeId))
                 {
-                    return userId;
+                    return employeeId;
                 }
                 return null;
             }

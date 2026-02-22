@@ -1,4 +1,9 @@
-﻿namespace EmpLeave.Services
+﻿using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace EmpLeave.Services
 {
     public class TokenService
     {
@@ -26,7 +31,7 @@
             return tokenHandler.WriteToken(token);
         }
 
-        public int? validateToken(string token)
+        public int? ValidateToken(string token)
         {
             try
             {

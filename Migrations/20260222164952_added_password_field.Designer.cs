@@ -4,6 +4,7 @@ using EmpLeave.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EmpLeave.Migrations
 {
     [DbContext(typeof(EmployeeLeaveDbContext))]
-    partial class EmployeeLeaveDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222164952_added_password_field")]
+    partial class added_password_field
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

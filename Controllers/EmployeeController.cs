@@ -20,6 +20,43 @@ namespace EmpLeave.Controllers
             _tokenService = tokenService;
         }
 
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] EmployeeLoginRequestDto request)
+        {
+            try
+            {
+                var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Email == request.Email);
+                if (employee == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
+
+                // You should store and check hashed passwords in production
+                // For now, assuming password is stored hashed
+                bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, employee.Password);
+                if (!isPasswordValid)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Invalid credentials" });
+
+                var token = _tokenService.GenerateToken(employee.EmployeeId, employee.Email, employee.UserName);
+                return Ok(new ApiResponseDto<EmployeeResponseDto>
+                {
+                    Success = true,
+                    Message = "Login successful",
+                    Token = token,
+                    Data = new EmployeeResponseDto
+                    {
+                        EmployeeId = employee.EmployeeId,
+                        EmployeeCode = employee.EmployeeCode,
+                        UserName = employee.UserName,
+                        Email = employee.Email
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
+            }
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] EmployeeRegisterRequestDto request)
         {
@@ -51,6 +88,7 @@ namespace EmpLeave.Controllers
                     EmployeeCode = request.EmployeeCode,
                     UserName = request.UserName,
                     Email = request.Email,
+                    Password = hashedPassword,
                     Designation = request.Designation,
                     DateOfJoining = request.DateOfJoining,
                     IsActive = true,

@@ -31,12 +31,12 @@ namespace EmpLeave.Controllers
                 if (existingEmployee != null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee already exists" });
 
-                if (string.IsNullOrEmpty(request.Email) || !request.Email.Contains('@'))
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a valid email" });
+                //if (string.IsNullOrEmpty(request.Email) || !request.Email.Contains('@'))
+                //    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a valid email" });
 
 
-                if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a strong password" });
+                //if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
+                //    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a strong password" });
 
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == request.DepartmentId);
@@ -63,6 +63,9 @@ namespace EmpLeave.Controllers
 
                 var createdEmployee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.Email == request.Email);
+
+                if (createdEmployee == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Failed to create employee" });
 
                 var token = _tokenService.GenerateToken(createdEmployee.EmployeeId, createdEmployee.Email, createdEmployee.UserName);
                 return Ok(new ApiResponseDto<EmployeeResponseDto>

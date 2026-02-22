@@ -24,11 +24,13 @@ namespace EmpLeave
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
             builder.Services.AddEndpointsApiExplorer();
+
             builder.Services.AddSwaggerGen();
+
             builder.Services.AddDbContext<EmployeeLeaveDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
-            builder.Services.AddSwaggerGen();
+
 
             // CORS — allow frontend and admin
             builder.Services.AddCors(options =>

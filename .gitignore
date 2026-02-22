@@ -1,0 +1,37 @@
+## Visual Studio temporary files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build results
+bin/
+obj/
+
+## IDEs
+.idea/
+.vscode/
+
+## Logs
+*.log
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Publish output
+publish/
+
+## Local settings
+appsettings.Development.json
+
+## dotnet watch
+*.dotnet-watch.json
+
+## NuGet
+*.nupkg
+packages/
+
+## Azure
+ServiceDependencies/

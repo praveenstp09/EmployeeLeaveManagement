@@ -1,0 +1,6 @@
+@EmpLeave_HostAddress = http://localhost:5299
+
+GET {{EmpLeave_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

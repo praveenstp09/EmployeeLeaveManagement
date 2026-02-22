@@ -20,7 +20,7 @@ namespace EmpLeave.Middlewares
                 var userId = tokenService.ValidateToken(token);
                 if (userId != null)
                 {
-                    context.Items["UserId"] = userId;
+                    context.Items["EmployeeId"] = userId;
                 }
             }
 

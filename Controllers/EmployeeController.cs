@@ -48,7 +48,6 @@ namespace EmpLeave.Controllers
 
                 var newEmployee = new Employee
                 {
-                    EmployeeId = Guid.NewGuid().ToString(),
                     EmployeeCode = request.EmployeeCode,
                     UserName = request.UserName,
                     Email = request.Email,
@@ -62,18 +61,21 @@ namespace EmpLeave.Controllers
                 _db.Employees.Add(newEmployee);
                 await _db.SaveChangesAsync();
 
-                var token = _tokenService.GenerateToken(int.Parse(newEmployee.EmployeeId));
-                return Ok(new ApiResponse<EmployeeResponse> 
-                { 
-                    Success = true, 
+                var createdEmployee = await _db.Employees
+                    .FirstOrDefaultAsync(e => e.Email == request.Email);
+
+                var token = _tokenService.GenerateToken(int.Parse(createdEmployee.EmployeeId), createdEmployee.Email, createdEmployee.UserName);
+                return Ok(new ApiResponse<EmployeeResponse>
+                {
+                    Success = true,
                     Message = "Employee registered successfully",
                     Token = token,
                     Data = new EmployeeResponse
                     {
-                        EmployeeId = newEmployee.EmployeeId,
-                        EmployeeCode = newEmployee.EmployeeCode,
-                        UserName = newEmployee.UserName,
-                        Email = newEmployee.Email
+                        EmployeeId = createdEmployee.EmployeeId,
+                        EmployeeCode = createdEmployee.EmployeeCode,
+                        UserName = createdEmployee.UserName,
+                        Email = createdEmployee.Email
                     }
                 });
             }

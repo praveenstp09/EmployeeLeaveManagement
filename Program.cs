@@ -1,5 +1,6 @@
 
 using EmpLeave.Config;
+using EmpLeave.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,6 +28,8 @@ namespace EmpLeave
             builder.Services.AddDbContext<EmployeeLeaveDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
+            builder.Services.AddSwaggerGen();
+
             // CORS — allow frontend and admin
             builder.Services.AddCors(options =>
             {
@@ -44,12 +47,17 @@ namespace EmpLeave
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
+
+            app.UseMiddleware<JwtMiddleware>();
 
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
 
+            app.UseCors();
 
             app.MapControllers();
 

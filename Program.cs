@@ -1,6 +1,7 @@
 
 using EmpLeave.Config;
 using EmpLeave.Middlewares;
+using EmpLeave.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -29,6 +30,8 @@ namespace EmpLeave
 
             builder.Services.AddDbContext<EmployeeLeaveDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+
+            builder.Services.AddSingleton<TokenService>();
 
 
 

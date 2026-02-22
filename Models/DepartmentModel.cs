@@ -1,7 +1,7 @@
 namespace EmpLeave.Models;
 
-public class Department
+public class DepartmentModel
 {
-    public string DepartmentId { get; set; } = null!;
+    public int DepartmentId { get; set; }
     public string DepartmentName { get; set; } = null!;
 }

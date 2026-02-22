@@ -10,46 +10,46 @@ public class EmployeeLeaveDbContext : DbContext
     {
     }
 
-    public DbSet<Department> Departments { get; set; }
-    public DbSet<Employee> Employees { get; set; }
-    public DbSet<LeaveType> LeaveTypes { get; set; }
-    public DbSet<LeaveRequest> LeaveRequests { get; set; }
-    public DbSet<LeaveBalance> LeaveBalances { get; set; }
+    public DbSet<DepartmentModel> Departments { get; set; }
+    public DbSet<EmployeeModel> Employees { get; set; }
+    public DbSet<LeaveTypeModel> LeaveTypes { get; set; }
+    public DbSet<LeaveRequestModel> LeaveRequests { get; set; }
+    public DbSet<LeaveBalanceModel> LeaveBalances { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         // Configure primary keys
-        modelBuilder.Entity<Department>().HasKey(d => d.DepartmentId);
-        modelBuilder.Entity<Employee>().HasKey(e => e.EmployeeId);
-        modelBuilder.Entity<LeaveType>().HasKey(lt => lt.LeaveTypeId);
-        modelBuilder.Entity<LeaveRequest>().HasKey(lr => lr.LeaveRequestId);
-        modelBuilder.Entity<LeaveBalance>().HasKey(lb => lb.LeaveBalanceId);
+        modelBuilder.Entity<DepartmentModel>().HasKey(d => d.DepartmentId);
+        modelBuilder.Entity<EmployeeModel>().HasKey(e => e.EmployeeId);
+        modelBuilder.Entity<LeaveTypeModel>().HasKey(lt => lt.LeaveTypeId);
+        modelBuilder.Entity<LeaveRequestModel>().HasKey(lr => lr.LeaveRequestId);
+        modelBuilder.Entity<LeaveBalanceModel>().HasKey(lb => lb.LeaveBalanceId);
 
         // Configure relationships
-        modelBuilder.Entity<Employee>()
-            .HasOne<Department>()
+        modelBuilder.Entity<EmployeeModel>()
+            .HasOne<DepartmentModel>()
             .WithMany()
             .HasForeignKey(e => e.DepartmentId);
 
-        modelBuilder.Entity<LeaveRequest>()
-            .HasOne<Employee>()
+        modelBuilder.Entity<LeaveRequestModel>()
+            .HasOne<EmployeeModel>()
             .WithMany()
             .HasForeignKey(lr => lr.EmployeeId);
 
-        modelBuilder.Entity<LeaveRequest>()
-            .HasOne<LeaveType>()
+        modelBuilder.Entity<LeaveRequestModel>()
+            .HasOne<LeaveTypeModel>()
             .WithMany()
             .HasForeignKey(lr => lr.LeaveTypeId);
 
-        modelBuilder.Entity<LeaveBalance>()
-            .HasOne<Employee>()
+        modelBuilder.Entity<LeaveBalanceModel>()
+            .HasOne<EmployeeModel>()
             .WithMany()
             .HasForeignKey(lb => lb.EmployeeId);
 
-        modelBuilder.Entity<LeaveBalance>()
-            .HasOne<LeaveType>()
+        modelBuilder.Entity<LeaveBalanceModel>()
+            .HasOne<LeaveTypeModel>()
             .WithMany()
             .HasForeignKey(lb => lb.LeaveTypeId);
     }

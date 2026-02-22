@@ -1,8 +1,8 @@
 namespace EmpLeave.Dtos;
 
-public class EmployeeResponse
+public class EmployeeResponseDto
 {
-    public string EmployeeId { get; set; } = null!;
+    public int EmployeeId { get; set; }
     public string EmployeeCode { get; set; } = null!;
     public string UserName { get; set; } = null!;
     public string Email { get; set; } = null!;

@@ -1,8 +1,8 @@
 namespace EmpLeave.Models;
 
-public class LeaveType
+public class LeaveTypeModel
 {
-    public string LeaveTypeId { get; set; } = null!;
+    public int LeaveTypeId { get; set; }
     public string LeaveName { get; set; } = null!;
     public int MaxDaysPerYear { get; set; }
     public bool RequiresApproval { get; set; }

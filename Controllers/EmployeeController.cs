@@ -21,7 +21,7 @@ namespace EmpLeave.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] EmployeeRegisterRequest request)
+        public async Task<IActionResult> Register([FromBody] EmployeeRegisterRequestDto request)
         {
             try
             {
@@ -29,24 +29,24 @@ namespace EmpLeave.Controllers
                     .FirstOrDefaultAsync(e => e.Email == request.Email || e.EmployeeCode == request.EmployeeCode);
 
                 if (existingEmployee != null)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Employee already exists" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee already exists" });
 
                 if (string.IsNullOrEmpty(request.Email) || !request.Email.Contains('@'))
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Please enter a valid email" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a valid email" });
 
 
                 if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Please enter a strong password" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a strong password" });
 
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == request.DepartmentId);
 
                 if (department == null)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Department not found" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Department not found" });
 
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-                var newEmployee = new Employee
+                var newEmployee = new EmployeeModel
                 {
                     EmployeeCode = request.EmployeeCode,
                     UserName = request.UserName,
@@ -64,13 +64,13 @@ namespace EmpLeave.Controllers
                 var createdEmployee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.Email == request.Email);
 
-                var token = _tokenService.GenerateToken(int.Parse(createdEmployee.EmployeeId), createdEmployee.Email, createdEmployee.UserName);
-                return Ok(new ApiResponse<EmployeeResponse>
+                var token = _tokenService.GenerateToken(createdEmployee.EmployeeId, createdEmployee.Email, createdEmployee.UserName);
+                return Ok(new ApiResponseDto<EmployeeResponseDto>
                 {
                     Success = true,
                     Message = "Employee registered successfully",
                     Token = token,
-                    Data = new EmployeeResponse
+                    Data = new EmployeeResponseDto
                     {
                         EmployeeId = createdEmployee.EmployeeId,
                         EmployeeCode = createdEmployee.EmployeeCode,
@@ -82,25 +82,26 @@ namespace EmpLeave.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return Ok(new ApiResponse<object> { Success = false, Message = ex.Message });
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEmployee(string id)
         {
+            int Id = int.Parse(id);
             try
             {
                 var employee = await _db.Employees
-                    .FirstOrDefaultAsync(e => e.EmployeeId == id);
+                    .FirstOrDefaultAsync(e => e.EmployeeId == Id);
 
                 if (employee == null)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Employee not found" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
-                return Ok(new ApiResponse<EmployeeResponse>
+                return Ok(new ApiResponseDto<EmployeeResponseDto>
                 {
                     Success = true,
-                    Data = new EmployeeResponse
+                    Data = new EmployeeResponseDto
                     {
                         EmployeeId = employee.EmployeeId,
                         EmployeeCode = employee.EmployeeCode,
@@ -112,7 +113,7 @@ namespace EmpLeave.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return Ok(new ApiResponse<object> { Success = false, Message = ex.Message });
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
         }
 
@@ -125,7 +126,7 @@ namespace EmpLeave.Controllers
                     .Where(e => e.IsActive)
                     .ToListAsync();
 
-                var employeeResponses = employees.Select(e => new EmployeeResponse
+                var employeeResponses = employees.Select(e => new EmployeeResponseDto
                 {
                     EmployeeId = e.EmployeeId,
                     EmployeeCode = e.EmployeeCode,
@@ -133,7 +134,7 @@ namespace EmpLeave.Controllers
                     Email = e.Email
                 }).ToList();
 
-                return Ok(new ApiResponse<List<EmployeeResponse>>
+                return Ok(new ApiResponseDto<List<EmployeeResponseDto>>
                 {
                     Success = true,
                     Data = employeeResponses
@@ -142,20 +143,21 @@ namespace EmpLeave.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return Ok(new ApiResponse<object> { Success = false, Message = ex.Message });
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEmployee(string id, [FromBody] EmployeeUpdateRequest request)
+        public async Task<IActionResult> UpdateEmployee(string id, [FromBody] EmployeeUpdateRequestDto request)
         {
+            int Id = int.Parse(id);
             try
             {
                 var employee = await _db.Employees
-                    .FirstOrDefaultAsync(e => e.EmployeeId == id);
+                    .FirstOrDefaultAsync(e => e.EmployeeId == Id);
 
                 if (employee == null)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Employee not found" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
                 employee.UserName = request.UserName ?? employee.UserName;
                 employee.Designation = request.Designation ?? employee.Designation;
@@ -165,7 +167,7 @@ namespace EmpLeave.Controllers
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponse<object> 
+                return Ok(new ApiResponseDto<object> 
                 { 
                     Success = true, 
                     Message = "Employee updated successfully" 
@@ -174,7 +176,7 @@ namespace EmpLeave.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return Ok(new ApiResponse<object> { Success = false, Message = ex.Message });
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
         }
 
@@ -183,17 +185,18 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                int Id = int.Parse(id);
                 var employee = await _db.Employees
-                    .FirstOrDefaultAsync(e => e.EmployeeId == id);
+                    .FirstOrDefaultAsync(e => e.EmployeeId == Id);
 
                 if (employee == null)
-                    return Ok(new ApiResponse<object> { Success = false, Message = "Employee not found" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
                 employee.IsActive = false;
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponse<object> 
+                return Ok(new ApiResponseDto<object> 
                 { 
                     Success = true, 
                     Message = "Employee deactivated successfully" 
@@ -202,7 +205,7 @@ namespace EmpLeave.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                return Ok(new ApiResponse<object> { Success = false, Message = ex.Message });
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
         }
     }

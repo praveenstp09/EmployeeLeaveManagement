@@ -1,10 +1,10 @@
 namespace EmpLeave.Models;
 
-public class LeaveRequest
+public class LeaveRequestModel
 {
-    public string LeaveRequestId { get; set; } = null!;
-    public string EmployeeId { get; set; } = null!;
-    public string LeaveTypeId { get; set; } = null!;
+    public int LeaveRequestId { get; set; }
+    public int EmployeeId { get; set; }
+    public int LeaveTypeId { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public int TotalDays { get; set; }

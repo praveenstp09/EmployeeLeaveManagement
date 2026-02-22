@@ -1,4 +1,7 @@
 
+using EmpLeave.Config;
+using Microsoft.EntityFrameworkCore;
+
 namespace EmpLeave
 {
     public class Program
@@ -12,7 +15,7 @@ namespace EmpLeave
             builder.Services.AddControllers();
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
-            builder.Services.AddDbContext<EmpLeave.Config.EmployeeLeaveDbContext>(options =>
+            builder.Services.AddDbContext<EmployeeLeaveDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
             var app = builder.Build();

@@ -259,26 +259,21 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                // Check if file exists
                 if (file == null || file.Length == 0)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "No file uploaded" });
 
-                // Validate file type (only images allowed for profile)
                 var allowedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
                 if (!allowedImageTypes.Contains(file.ContentType))
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Only JPEG, PNG, GIF, and WebP images are allowed" });
 
-                // Check if employee exists
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
 
                 if (employee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
-                // Upload file to Supabase
                 var imageUrl = await _fileStorageService.UploadFileAsync(file, $"profile-images/{employeeId}");
 
-                // Update employee with image URL
                 employee.ImageUrl = imageUrl;
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();

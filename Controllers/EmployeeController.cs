@@ -33,25 +33,17 @@ namespace EmpLeave.Controllers
                 if (employee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
-                // You should store and check hashed passwords in production
-                // For now, assuming password is stored hashed
                 bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, employee.Password);
                 if (!isPasswordValid)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Invalid credentials" });
 
-                var token = _tokenService.GenerateToken(employee.EmployeeId, employee.Email, employee.UserName);
+                var token = _tokenService.GenerateToken(employee.EmployeeId, employee.Email, employee.UserName, employee.Role);
                 return Ok(new ApiResponseDto<EmployeeResponseDto>
                 {
                     Success = true,
                     Message = "Login successful",
                     Token = token,
-                    Data = new EmployeeResponseDto
-                    {
-                        EmployeeId = employee.EmployeeId,
-                        EmployeeCode = employee.EmployeeCode,
-                        UserName = employee.UserName,
-                        Email = employee.Email
-                    }
+                    Data = MapToResponse(employee)
                 });
             }
             catch (Exception ex)
@@ -72,18 +64,17 @@ namespace EmpLeave.Controllers
                 if (existingEmployee != null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee already exists" });
 
-                //if (string.IsNullOrEmpty(request.Email) || !request.Email.Contains('@'))
-                //    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a valid email" });
-
-
-                //if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
-                //    return Ok(new ApiResponseDto<object> { Success = false, Message = "Please enter a strong password" });
-
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == request.DepartmentId);
 
                 if (department == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department not found" });
+
+                // Only SuperAdmin can assign HR or SuperAdmin roles
+                var callerRole = HttpContext.Items["Role"] as string;
+                string assignedRole = request.Role;
+                if (assignedRole is "HR" or "SuperAdmin" && callerRole != "SuperAdmin")
+                    assignedRole = "Employee";
 
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
@@ -96,6 +87,7 @@ namespace EmpLeave.Controllers
                     Designation = request.Designation,
                     DateOfJoining = request.DateOfJoining,
                     IsActive = true,
+                    Role = assignedRole,
                     DepartmentId = request.DepartmentId,
                     ManagerId = request.ManagerId
                 };
@@ -103,25 +95,13 @@ namespace EmpLeave.Controllers
                 _db.Employees.Add(newEmployee);
                 await _db.SaveChangesAsync();
 
-                var createdEmployee = await _db.Employees
-                    .FirstOrDefaultAsync(e => e.Email == request.Email);
-
-                if (createdEmployee == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Failed to create employee" });
-
-                var token = _tokenService.GenerateToken(createdEmployee.EmployeeId, createdEmployee.Email, createdEmployee.UserName);
+                var token = _tokenService.GenerateToken(newEmployee.EmployeeId, newEmployee.Email, newEmployee.UserName, newEmployee.Role);
                 return Ok(new ApiResponseDto<EmployeeResponseDto>
                 {
                     Success = true,
                     Message = "Employee registered successfully",
                     Token = token,
-                    Data = new EmployeeResponseDto
-                    {
-                        EmployeeId = createdEmployee.EmployeeId,
-                        EmployeeCode = createdEmployee.EmployeeCode,
-                        UserName = createdEmployee.UserName,
-                        Email = createdEmployee.Email
-                    }
+                    Data = MapToResponse(newEmployee)
                 });
             }
             catch (Exception ex)
@@ -136,6 +116,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 int Id = int.Parse(id);
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == Id);
@@ -146,13 +130,7 @@ namespace EmpLeave.Controllers
                 return Ok(new ApiResponseDto<EmployeeResponseDto>
                 {
                     Success = true,
-                    Data = new EmployeeResponseDto
-                    {
-                        EmployeeId = employee.EmployeeId,
-                        EmployeeCode = employee.EmployeeCode,
-                        UserName = employee.UserName,
-                        Email = employee.Email
-                    }
+                    Data = MapToResponse(employee)
                 });
             }
             catch (Exception ex)
@@ -167,17 +145,15 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 var employees = await _db.Employees
                     .Where(e => e.IsActive)
                     .ToListAsync();
 
-                var employeeResponses = employees.Select(e => new EmployeeResponseDto
-                {
-                    EmployeeId = e.EmployeeId,
-                    EmployeeCode = e.EmployeeCode,
-                    UserName = e.UserName,
-                    Email = e.Email
-                }).ToList();
+                var employeeResponses = employees.Select(MapToResponse).ToList();
 
                 return Ok(new ApiResponseDto<List<EmployeeResponseDto>>
                 {
@@ -198,6 +174,15 @@ namespace EmpLeave.Controllers
             int Id = int.Parse(id);
             try
             {
+                var callerId = HttpContext.Items["EmployeeId"] as int?;
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
+                // Only self or SuperAdmin can update
+                if (callerId != Id && callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to update this employee" });
+
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == Id);
 
@@ -209,13 +194,18 @@ namespace EmpLeave.Controllers
                 employee.DepartmentId = request.DepartmentId ?? employee.DepartmentId;
                 employee.ManagerId = request.ManagerId ?? employee.ManagerId;
 
+                // Only SuperAdmin can change roles
+                if (request.Role != null && callerRole == "SuperAdmin")
+                    employee.Role = request.Role;
+
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponseDto<object> 
-                { 
-                    Success = true, 
-                    Message = "Employee updated successfully" 
+                return Ok(new ApiResponseDto<EmployeeResponseDto>
+                {
+                    Success = true,
+                    Message = "Employee updated successfully",
+                    Data = MapToResponse(employee)
                 });
             }
             catch (Exception ex)
@@ -230,6 +220,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can deactivate employees" });
+
                 int Id = int.Parse(id);
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == Id);
@@ -241,10 +235,10 @@ namespace EmpLeave.Controllers
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponseDto<object> 
-                { 
-                    Success = true, 
-                    Message = "Employee deactivated successfully" 
+                return Ok(new ApiResponseDto<object>
+                {
+                    Success = true,
+                    Message = "Employee deactivated successfully"
                 });
             }
             catch (Exception ex)
@@ -259,6 +253,14 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerId = HttpContext.Items["EmployeeId"] as int?;
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
+                if (callerId != employeeId && callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to update this profile image" });
+
                 if (file == null || file.Length == 0)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "No file uploaded" });
 
@@ -290,6 +292,24 @@ namespace EmpLeave.Controllers
                 Console.WriteLine(ex);
                 return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
+        }
+
+        private static EmployeeResponseDto MapToResponse(EmployeeModel employee)
+        {
+            return new EmployeeResponseDto
+            {
+                EmployeeId = employee.EmployeeId,
+                EmployeeCode = employee.EmployeeCode,
+                UserName = employee.UserName,
+                Email = employee.Email,
+                Designation = employee.Designation,
+                Role = employee.Role,
+                DepartmentId = employee.DepartmentId,
+                ManagerId = employee.ManagerId,
+                IsActive = employee.IsActive,
+                DateOfJoining = employee.DateOfJoining,
+                ImageUrl = employee.ImageUrl
+            };
         }
     }
 }

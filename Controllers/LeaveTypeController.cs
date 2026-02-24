@@ -23,6 +23,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can create leave types" });
+
                 var existing = await _db.LeaveTypes
                     .FirstOrDefaultAsync(lt => lt.LeaveName == request.LeaveName);
 
@@ -58,6 +62,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 var leaveTypes = await _db.LeaveTypes.ToListAsync();
 
                 var response = leaveTypes.Select(MapToResponse).ToList();
@@ -80,6 +88,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 int leaveTypeId = int.Parse(id);
                 var leaveType = await _db.LeaveTypes
                     .FirstOrDefaultAsync(lt => lt.LeaveTypeId == leaveTypeId);
@@ -105,6 +117,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can update leave types" });
+
                 int leaveTypeId = int.Parse(id);
                 var leaveType = await _db.LeaveTypes
                     .FirstOrDefaultAsync(lt => lt.LeaveTypeId == leaveTypeId);
@@ -148,6 +164,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can delete leave types" });
+
                 int leaveTypeId = int.Parse(id);
                 var leaveType = await _db.LeaveTypes
                     .FirstOrDefaultAsync(lt => lt.LeaveTypeId == leaveTypeId);

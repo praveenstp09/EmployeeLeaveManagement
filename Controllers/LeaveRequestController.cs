@@ -46,13 +46,16 @@ namespace EmpLeave.Controllers
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Cannot apply leave for past dates" });
 
                 int totalDays = (request.ToDate.Date - request.FromDate.Date).Days + 1;
+                int leaveYear = request.FromDate.Year;
 
-                // Check leave balance
+                // Check leave balance for the year
                 var balance = await _db.LeaveBalances
-                    .FirstOrDefaultAsync(lb => lb.EmployeeId == employeeId && lb.LeaveTypeId == request.LeaveTypeId);
+                    .FirstOrDefaultAsync(lb => lb.EmployeeId == employeeId
+                        && lb.LeaveTypeId == request.LeaveTypeId
+                        && lb.Year == leaveYear);
 
                 if (balance == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "No leave balance allocated for this leave type" });
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "No leave balance allocated for this leave type in the requested year" });
 
                 int remaining = balance.TotalAllocated - balance.Used;
                 if (totalDays > remaining)
@@ -157,6 +160,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerId = HttpContext.Items["EmployeeId"] as int?;
+                if (callerId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 int requestId = int.Parse(id);
                 var leaveRequest = await _db.LeaveRequests
                     .FirstOrDefaultAsync(lr => lr.LeaveRequestId == requestId);
@@ -189,26 +196,49 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var managerId = HttpContext.Items["EmployeeId"] as int?;
-                if (managerId == null)
+                var approverId = HttpContext.Items["EmployeeId"] as int?;
+                var approverRole = HttpContext.Items["Role"] as string;
+                if (approverId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
-                // Get employees managed by this manager
-                var managedEmployeeIds = await _db.Employees
-                    .Where(e => e.ManagerId == managerId && e.IsActive)
-                    .Select(e => e.EmployeeId)
-                    .ToListAsync();
+                List<int> authorizedEmployeeIds;
 
-                if (managedEmployeeIds.Count == 0)
+                if (approverRole == "SuperAdmin")
+                {
+                    // SuperAdmin sees all pending requests
+                    authorizedEmployeeIds = await _db.Employees
+                        .Where(e => e.IsActive)
+                        .Select(e => e.EmployeeId)
+                        .ToListAsync();
+                }
+                else if (approverRole == "HR")
+                {
+                    // HR sees pending requests from their department
+                    var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
+                    authorizedEmployeeIds = await _db.Employees
+                        .Where(e => e.DepartmentId == approver!.DepartmentId && e.IsActive && e.EmployeeId != approverId)
+                        .Select(e => e.EmployeeId)
+                        .ToListAsync();
+                }
+                else
+                {
+                    // Manager sees pending requests from their subordinates
+                    authorizedEmployeeIds = await _db.Employees
+                        .Where(e => e.ManagerId == approverId && e.IsActive)
+                        .Select(e => e.EmployeeId)
+                        .ToListAsync();
+                }
+
+                if (authorizedEmployeeIds.Count == 0)
                     return Ok(new ApiResponseDto<List<LeaveRequestResponseDto>>
                     {
                         Success = true,
-                        Message = "No employees under your management",
+                        Message = "No pending requests to review",
                         Data = new List<LeaveRequestResponseDto>()
                     });
 
                 var pendingRequests = await _db.LeaveRequests
-                    .Where(lr => managedEmployeeIds.Contains(lr.EmployeeId) && lr.Status == "Pending")
+                    .Where(lr => authorizedEmployeeIds.Contains(lr.EmployeeId) && lr.Status == "Pending")
                     .OrderBy(lr => lr.CreatedAt)
                     .ToListAsync();
 
@@ -246,8 +276,9 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var managerId = HttpContext.Items["EmployeeId"] as int?;
-                if (managerId == null)
+                var approverId = HttpContext.Items["EmployeeId"] as int?;
+                var approverRole = HttpContext.Items["Role"] as string;
+                if (approverId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
                 int requestId = int.Parse(id);
@@ -260,23 +291,37 @@ namespace EmpLeave.Controllers
                 if (leaveRequest.Status != "Pending")
                     return Ok(new ApiResponseDto<object> { Success = false, Message = $"Leave request is already {leaveRequest.Status}" });
 
-                // Verify the approver is the manager of the requesting employee
                 var requestingEmployee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == leaveRequest.EmployeeId);
 
-                if (requestingEmployee == null || requestingEmployee.ManagerId != managerId)
+                if (requestingEmployee == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Requesting employee not found" });
+
+                // Authorization: Manager OR department HR OR SuperAdmin
+                bool isManager = requestingEmployee.ManagerId == approverId;
+                bool isSuperAdmin = approverRole == "SuperAdmin";
+                bool isDeptHR = false;
+                if (approverRole == "HR")
+                {
+                    var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
+                    isDeptHR = approver?.DepartmentId == requestingEmployee.DepartmentId;
+                }
+
+                if (!isManager && !isDeptHR && !isSuperAdmin)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to approve this request" });
 
                 leaveRequest.Status = request.Status;
-                leaveRequest.ApprovedById = managerId.ToString();
+                leaveRequest.ApprovedById = approverId;
                 leaveRequest.ApprovedAt = DateTime.UtcNow;
 
                 // If approved, deduct from leave balance
                 if (request.Status == "Approved")
                 {
+                    int leaveYear = leaveRequest.FromDate.Year;
                     var balance = await _db.LeaveBalances
                         .FirstOrDefaultAsync(lb => lb.EmployeeId == leaveRequest.EmployeeId
-                            && lb.LeaveTypeId == leaveRequest.LeaveTypeId);
+                            && lb.LeaveTypeId == leaveRequest.LeaveTypeId
+                            && lb.Year == leaveYear);
 
                     if (balance == null)
                         return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee has no leave balance for this leave type" });
@@ -341,8 +386,11 @@ namespace EmpLeave.Controllers
                 // If it was approved, restore leave balance
                 if (leaveRequest.Status == "Approved")
                 {
+                    int leaveYear = leaveRequest.FromDate.Year;
                     var balance = await _db.LeaveBalances
-                        .FirstOrDefaultAsync(lb => lb.EmployeeId == employeeId && lb.LeaveTypeId == leaveRequest.LeaveTypeId);
+                        .FirstOrDefaultAsync(lb => lb.EmployeeId == employeeId
+                            && lb.LeaveTypeId == leaveRequest.LeaveTypeId
+                            && lb.Year == leaveYear);
 
                     if (balance != null)
                     {
@@ -373,6 +421,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can view all leave requests" });
+
                 var requests = await _db.LeaveRequests
                     .OrderByDescending(lr => lr.CreatedAt)
                     .ToListAsync();

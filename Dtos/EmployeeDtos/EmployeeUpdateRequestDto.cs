@@ -8,4 +8,8 @@ public class EmployeeUpdateRequestDto
     public string? ImageUrl { get; set; }
     public int? DepartmentId { get; set; }
     public int? ManagerId { get; set; }
+
+    [System.ComponentModel.DataAnnotations.RegularExpression("^(Employee|HR|SuperAdmin)$",
+        ErrorMessage = "Role must be 'Employee', 'HR', or 'SuperAdmin'")]
+    public string? Role { get; set; }
 }

@@ -18,10 +18,11 @@ namespace EmpLeave.Middlewares
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
             {
                 var token = authHeader.Substring("Bearer ".Length).Trim();
-                var userId = tokenService.ValidateToken(token);
-                if (userId != null)
+                var tokenInfo = tokenService.ValidateToken(token);
+                if (tokenInfo != null)
                 {
-                    context.Items["EmployeeId"] = userId;
+                    context.Items["EmployeeId"] = tokenInfo.EmployeeId;
+                    context.Items["Role"] = tokenInfo.Role;
                 }
             }
 

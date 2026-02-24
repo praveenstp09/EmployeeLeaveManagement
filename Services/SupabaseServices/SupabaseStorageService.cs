@@ -36,5 +36,20 @@ namespace EmpLeave.Services.SupabaseServices
 
             return publicUrl;
         }
+
+        public async Task<bool> DeleteFileAsync(string fileUrl)
+        {
+            var uri = new Uri(fileUrl);
+            var filePath = uri.AbsolutePath.Split($"/object/public/{_bucket}/").LastOrDefault();
+
+            if (string.IsNullOrEmpty(filePath))
+                return false;
+
+            await _client.Storage
+                .From(_bucket)
+                .Remove(new List<string> { filePath });
+
+            return true;
+        }
     }
 }

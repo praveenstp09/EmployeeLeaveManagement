@@ -11,6 +11,13 @@ public class EmployeeModel
     public string? ImageUrl { get; set; } = string.Empty;
     public DateTime DateOfJoining { get; set; }
     public bool IsActive { get; set; }
+    public string Role { get; set; } = "Employee"; // "Employee", "HR", "SuperAdmin"
     public int DepartmentId { get; set; }
     public int? ManagerId { get; set; }
+
+    public DepartmentModel Department { get; set; } = null!;
+    public EmployeeModel? Manager { get; set; }
+    public ICollection<EmployeeModel> Subordinates { get; set; } = [];
+    public ICollection<LeaveRequestModel> LeaveRequests { get; set; } = [];
+    public ICollection<LeaveBalanceModel> LeaveBalances { get; set; } = [];
 }

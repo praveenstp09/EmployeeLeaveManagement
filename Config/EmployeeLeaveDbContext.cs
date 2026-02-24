@@ -27,30 +27,58 @@ public class EmployeeLeaveDbContext : DbContext
         modelBuilder.Entity<LeaveRequestModel>().HasKey(lr => lr.LeaveRequestId);
         modelBuilder.Entity<LeaveBalanceModel>().HasKey(lb => lb.LeaveBalanceId);
 
-        // Configure relationships
+        // Department -> Employees
         modelBuilder.Entity<EmployeeModel>()
-            .HasOne<DepartmentModel>()
-            .WithMany()
-            .HasForeignKey(e => e.DepartmentId);
+            .HasOne(e => e.Department)
+            .WithMany(d => d.Employees)
+            .HasForeignKey(e => e.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
 
+        // Employee -> Manager (self-referencing)
+        modelBuilder.Entity<EmployeeModel>()
+            .HasOne(e => e.Manager)
+            .WithMany(m => m.Subordinates)
+            .HasForeignKey(e => e.ManagerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // LeaveRequest -> Employee
         modelBuilder.Entity<LeaveRequestModel>()
-            .HasOne<EmployeeModel>()
-            .WithMany()
-            .HasForeignKey(lr => lr.EmployeeId);
+            .HasOne(lr => lr.Employee)
+            .WithMany(e => e.LeaveRequests)
+            .HasForeignKey(lr => lr.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
+        // LeaveRequest -> LeaveType
         modelBuilder.Entity<LeaveRequestModel>()
-            .HasOne<LeaveTypeModel>()
-            .WithMany()
-            .HasForeignKey(lr => lr.LeaveTypeId);
+            .HasOne(lr => lr.LeaveType)
+            .WithMany(lt => lt.LeaveRequests)
+            .HasForeignKey(lr => lr.LeaveTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<LeaveBalanceModel>()
-            .HasOne<EmployeeModel>()
+        // LeaveRequest -> ApprovedBy (Employee)
+        modelBuilder.Entity<LeaveRequestModel>()
+            .HasOne(lr => lr.ApprovedBy)
             .WithMany()
-            .HasForeignKey(lb => lb.EmployeeId);
+            .HasForeignKey(lr => lr.ApprovedById)
+            .OnDelete(DeleteBehavior.Restrict);
 
+        // LeaveBalance -> Employee
         modelBuilder.Entity<LeaveBalanceModel>()
-            .HasOne<LeaveTypeModel>()
-            .WithMany()
-            .HasForeignKey(lb => lb.LeaveTypeId);
+            .HasOne(lb => lb.Employee)
+            .WithMany(e => e.LeaveBalances)
+            .HasForeignKey(lb => lb.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // LeaveBalance -> LeaveType
+        modelBuilder.Entity<LeaveBalanceModel>()
+            .HasOne(lb => lb.LeaveType)
+            .WithMany(lt => lt.LeaveBalances)
+            .HasForeignKey(lb => lb.LeaveTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Unique constraint: one balance per employee per leave type per year
+        modelBuilder.Entity<LeaveBalanceModel>()
+            .HasIndex(lb => new { lb.EmployeeId, lb.LeaveTypeId, lb.Year })
+            .IsUnique();
     }
 }

@@ -7,6 +7,7 @@ public class LeaveBalanceResponseDto
     public string EmployeeName { get; set; } = null!;
     public int LeaveTypeId { get; set; }
     public string LeaveTypeName { get; set; } = null!;
+    public int Year { get; set; }
     public int TotalAllocated { get; set; }
     public int Used { get; set; }
     public int Remaining => TotalAllocated - Used;

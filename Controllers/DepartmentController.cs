@@ -22,6 +22,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can create departments" });
+
                 if (string.IsNullOrWhiteSpace(request.DepartmentName))
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department name is required" });
 
@@ -58,6 +62,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 var departments = await _db.Departments.ToListAsync();
 
                 return Ok(new ApiResponseDto<List<DepartmentModel>>
@@ -78,6 +86,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var employeeId = HttpContext.Items["EmployeeId"] as int?;
+                if (employeeId == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == departmentId);
@@ -103,6 +115,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can update departments" });
+
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == departmentId);
@@ -143,6 +159,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
+                var callerRole = HttpContext.Items["Role"] as string;
+                if (callerRole != "SuperAdmin")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can delete departments" });
+
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == departmentId);

@@ -6,4 +6,7 @@ public class LeaveTypeModel
     public string LeaveName { get; set; } = null!;
     public int MaxDaysPerYear { get; set; }
     public bool RequiresApproval { get; set; }
+
+    public ICollection<LeaveRequestModel> LeaveRequests { get; set; } = [];
+    public ICollection<LeaveBalanceModel> LeaveBalances { get; set; } = [];
 }

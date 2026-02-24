@@ -13,4 +13,6 @@ public class LeaveBalanceAllocateDto
     [Required(ErrorMessage = "Total allocated days is required")]
     [Range(1, 365, ErrorMessage = "Allocated days must be between 1 and 365")]
     public int TotalAllocated { get; set; }
+
+    public int? Year { get; set; }
 }

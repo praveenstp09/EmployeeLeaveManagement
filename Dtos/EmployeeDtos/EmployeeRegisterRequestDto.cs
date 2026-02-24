@@ -32,4 +32,7 @@ public class EmployeeRegisterRequestDto
     public int DepartmentId { get; set; }
 
     public int? ManagerId { get; set; }
+
+    [RegularExpression("^(Employee|HR|SuperAdmin)$", ErrorMessage = "Role must be 'Employee', 'HR', or 'SuperAdmin'")]
+    public string Role { get; set; } = "Employee";
 }

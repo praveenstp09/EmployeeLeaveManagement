@@ -8,6 +8,7 @@ public class EmployeeModel
     public string Password { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Designation { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; } = string.Empty;
     public DateTime DateOfJoining { get; set; }
     public bool IsActive { get; set; }
     public int DepartmentId { get; set; }

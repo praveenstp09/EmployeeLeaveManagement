@@ -3,7 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
 using EmpLeave.Services;
-using EmpLeave.Dtos;
+using EmpLeave.Dtos.EmployeeDtos;
+using EmpLeave.Dtos.ApiDto;
 
 namespace EmpLeave.Controllers
 {
@@ -130,9 +131,9 @@ namespace EmpLeave.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEmployee(string id)
         {
-            int Id = int.Parse(id);
             try
             {
+                int Id = int.Parse(id);
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == Id);
 

@@ -1,7 +1,7 @@
-
 using EmpLeave.Config;
 using EmpLeave.Middlewares;
 using EmpLeave.Services;
+using EmpLeave.Services.SupabaseServices;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,7 +10,7 @@ namespace EmpLeave
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +33,23 @@ namespace EmpLeave
 
             builder.Services.AddSingleton<TokenService>();
 
+            // Register Supabase Initializer
+            builder.Services.AddSingleton<ISupabaseInitializer, SupabaseInitializer>();
+
+            // Initialize Supabase Client
+            var supabaseInitializer = builder.Services.BuildServiceProvider().GetRequiredService<ISupabaseInitializer>();
+            var supabaseClient = await supabaseInitializer.InitializeAsync();
+
+            // Register File Storage Service with initialized Supabase client
+            builder.Services.AddScoped<IFileStorageService>(provider =>
+            {
+                var bucket = builder.Configuration["Supabase:Bucket"];
+                return new SupabaseStorageService(
+                    builder.Configuration,
+                    supabaseClient,
+                    bucket
+                );
+            });
 
 
             // CORS — allow frontend and admin

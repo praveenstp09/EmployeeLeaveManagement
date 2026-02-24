@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
-using EmpLeave.Dtos;
+using EmpLeave.Dtos.ApiDto;
 
 namespace EmpLeave.Controllers
 {

@@ -1,4 +1,4 @@
-namespace EmpLeave.Dtos;
+namespace EmpLeave.Dtos.ApiDto;
 
 public class ApiResponseDto<T>
 {

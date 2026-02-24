@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace EmpLeave.Dtos;
+namespace EmpLeave.Dtos.EmployeeDtos;
 
 public class EmployeeRegisterRequestDto
 {

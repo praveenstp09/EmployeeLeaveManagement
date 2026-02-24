@@ -13,10 +13,11 @@ namespace EmpLeave.Middlewares
 
         public async Task InvokeAsync(HttpContext context, TokenService tokenService)
         {
-            var token = context.Request.Headers["token"].FirstOrDefault();
+            var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
 
-            if (!string.IsNullOrEmpty(token))
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
             {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
                 var userId = tokenService.ValidateToken(token);
                 if (userId != null)
                 {

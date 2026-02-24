@@ -5,6 +5,7 @@ using EmpLeave.Models;
 using EmpLeave.Services;
 using EmpLeave.Dtos.EmployeeDtos;
 using EmpLeave.Dtos.ApiDto;
+using EmpLeave.Services.SupabaseServices;
 
 namespace EmpLeave.Controllers
 {
@@ -14,11 +15,13 @@ namespace EmpLeave.Controllers
     {
         private readonly EmployeeLeaveDbContext _db;
         private readonly TokenService _tokenService;
+        private readonly IFileStorageService _fileStorageService;
 
-        public EmployeeController(EmployeeLeaveDbContext db, TokenService tokenService)
+        public EmployeeController(EmployeeLeaveDbContext db, TokenService tokenService, IFileStorageService fileStorageService)
         {
             _db = db;
             _tokenService = tokenService;
+            _fileStorageService = fileStorageService;
         }
 
         [HttpPost("login")]
@@ -242,6 +245,49 @@ namespace EmpLeave.Controllers
                 { 
                     Success = true, 
                     Message = "Employee deactivated successfully" 
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
+            }
+        }
+
+        [HttpPost("profileImage")]
+        public async Task<IActionResult> UploadProfileImage([FromForm] int employeeId, [FromForm] IFormFile file)
+        {
+            try
+            {
+                // Check if file exists
+                if (file == null || file.Length == 0)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "No file uploaded" });
+
+                // Validate file type (only images allowed for profile)
+                var allowedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+                if (!allowedImageTypes.Contains(file.ContentType))
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only JPEG, PNG, GIF, and WebP images are allowed" });
+
+                // Check if employee exists
+                var employee = await _db.Employees
+                    .FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
+
+                if (employee == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
+
+                // Upload file to Supabase
+                var imageUrl = await _fileStorageService.UploadFileAsync(file, $"profile-images/{employeeId}");
+
+                // Update employee with image URL
+                employee.ImageUrl = imageUrl;
+                _db.Employees.Update(employee);
+                await _db.SaveChangesAsync();
+
+                return Ok(new ApiResponseDto<object>
+                {
+                    Success = true,
+                    Message = "Profile image uploaded successfully",
+                    Data = new { EmployeeId = employeeId, ImageUrl = imageUrl }
                 });
             }
             catch (Exception ex)

@@ -11,7 +11,7 @@ public class EmployeeModel
     public string? ImageUrl { get; set; } = string.Empty;
     public DateTime DateOfJoining { get; set; }
     public bool IsActive { get; set; }
-    public string Role { get; set; } = "Employee"; // "Employee", "HR", "SuperAdmin"
+    public string Role { get; set; } = "Employee"; // "Employee", "Manager", "HR", "DepartmentHead", "SuperAdmin"
     public int DepartmentId { get; set; }
     public int? ManagerId { get; set; }
 

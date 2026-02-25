@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
@@ -201,32 +201,55 @@ namespace EmpLeave.Controllers
                 if (approverId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
+                var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
+                if (approver == null)
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Approver not found" });
+
                 List<int> authorizedEmployeeIds;
 
                 if (approverRole == "SuperAdmin")
                 {
                     // SuperAdmin sees all pending requests
                     authorizedEmployeeIds = await _db.Employees
-                        .Where(e => e.IsActive)
+                        .Where(e => e.IsActive && e.EmployeeId != approverId)
+                        .Select(e => e.EmployeeId)
+                        .ToListAsync();
+                }
+                else if (approverRole == "DepartmentHead")
+                {
+                    // DepartmentHead sees pending from Manager, HR, and Employee in their department
+                    authorizedEmployeeIds = await _db.Employees
+                        .Where(e => e.DepartmentId == approver.DepartmentId
+                            && e.IsActive
+                            && e.EmployeeId != approverId
+                            && (e.Role == "Employee" || e.Role == "Manager" || e.Role == "HR"))
                         .Select(e => e.EmployeeId)
                         .ToListAsync();
                 }
                 else if (approverRole == "HR")
                 {
-                    // HR sees pending requests from their department
-                    var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
+                    // HR sees pending from Employee role in their department
                     authorizedEmployeeIds = await _db.Employees
-                        .Where(e => e.DepartmentId == approver!.DepartmentId && e.IsActive && e.EmployeeId != approverId)
+                        .Where(e => e.DepartmentId == approver.DepartmentId
+                            && e.IsActive
+                            && e.Role == "Employee")
+                        .Select(e => e.EmployeeId)
+                        .ToListAsync();
+                }
+                else if (approverRole == "Manager")
+                {
+                    // Manager sees pending from their direct subordinates who are Employee role
+                    authorizedEmployeeIds = await _db.Employees
+                        .Where(e => e.ManagerId == approverId
+                            && e.IsActive
+                            && e.Role == "Employee")
                         .Select(e => e.EmployeeId)
                         .ToListAsync();
                 }
                 else
                 {
-                    // Manager sees pending requests from their subordinates
-                    authorizedEmployeeIds = await _db.Employees
-                        .Where(e => e.ManagerId == approverId && e.IsActive)
-                        .Select(e => e.EmployeeId)
-                        .ToListAsync();
+                    // Regular employees cannot approve
+                    authorizedEmployeeIds = [];
                 }
 
                 if (authorizedEmployeeIds.Count == 0)
@@ -297,17 +320,40 @@ namespace EmpLeave.Controllers
                 if (requestingEmployee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Requesting employee not found" });
 
-                // Authorization: Manager OR department HR OR SuperAdmin
-                bool isManager = requestingEmployee.ManagerId == approverId;
+                // Get requester's department to check if approver is their dept head
+                var requesterDept = await _db.Departments
+                    .FirstOrDefaultAsync(d => d.DepartmentId == requestingEmployee.DepartmentId);
+
                 bool isSuperAdmin = approverRole == "SuperAdmin";
-                bool isDeptHR = false;
-                if (approverRole == "HR")
+                bool isDeptHead = approverRole == "DepartmentHead" && requesterDept?.DepartmentHeadId == approverId;
+
+                // Apply hierarchical approval rules
+                bool canApprove;
+
+                if (requestingEmployee.Role == "DepartmentHead")
                 {
-                    var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
-                    isDeptHR = approver?.DepartmentId == requestingEmployee.DepartmentId;
+                    // DepartmentHead leave → only SuperAdmin
+                    canApprove = isSuperAdmin;
+                }
+                else if (requestingEmployee.Role is "Manager" or "HR")
+                {
+                    // Manager/HR leave → DepartmentHead (same dept) or SuperAdmin
+                    canApprove = isDeptHead || isSuperAdmin;
+                }
+                else
+                {
+                    // Employee leave → Manager, HR (same dept), DepartmentHead (same dept), SuperAdmin
+                    bool isManager = requestingEmployee.ManagerId == approverId;
+                    bool isDeptHR = false;
+                    if (approverRole == "HR")
+                    {
+                        var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
+                        isDeptHR = approver?.DepartmentId == requestingEmployee.DepartmentId;
+                    }
+                    canApprove = isManager || isDeptHR || isDeptHead || isSuperAdmin;
                 }
 
-                if (!isManager && !isDeptHR && !isSuperAdmin)
+                if (!canApprove)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to approve this request" });
 
                 leaveRequest.Status = request.Status;

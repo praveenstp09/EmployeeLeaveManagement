@@ -70,11 +70,26 @@ namespace EmpLeave.Controllers
                 if (department == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department not found" });
 
-                // Only SuperAdmin can assign HR or SuperAdmin roles
+                // Role assignment rules:
+                // SuperAdmin → can assign any role
+                // DepartmentHead → can assign "Manager" to employees in their department
                 var callerRole = HttpContext.Items["Role"] as string;
+                var callerId = HttpContext.Items["EmployeeId"] as int?;
                 string assignedRole = request.Role;
-                if (assignedRole is "HR" or "SuperAdmin" && callerRole != "SuperAdmin")
-                    assignedRole = "Employee";
+
+                if (assignedRole != "Employee" && callerRole != "SuperAdmin")
+                {
+                    if (assignedRole == "Manager" && callerRole == "DepartmentHead" && callerId != null)
+                    {
+                        var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
+                        if (caller == null || caller.DepartmentId != request.DepartmentId)
+                            assignedRole = "Employee"; // Not same department, demote to Employee
+                    }
+                    else
+                    {
+                        assignedRole = "Employee"; // Not authorized for this role
+                    }
+                }
 
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
@@ -179,8 +194,8 @@ namespace EmpLeave.Controllers
                 if (callerId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
-                // Only self or SuperAdmin can update
-                if (callerId != Id && callerRole != "SuperAdmin")
+                // Self, SuperAdmin, or DepartmentHead (same dept) can update
+                if (callerId != Id && callerRole != "SuperAdmin" && callerRole != "DepartmentHead")
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to update this employee" });
 
                 var employee = await _db.Employees
@@ -189,14 +204,35 @@ namespace EmpLeave.Controllers
                 if (employee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
+                // DepartmentHead can only update employees in their own department
+                if (callerRole == "DepartmentHead" && callerId != Id)
+                {
+                    var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
+                    if (caller == null || caller.DepartmentId != employee.DepartmentId)
+                        return Ok(new ApiResponseDto<object> { Success = false, Message = "You can only update employees in your department" });
+                }
+
                 employee.UserName = request.UserName ?? employee.UserName;
                 employee.Designation = request.Designation ?? employee.Designation;
                 employee.DepartmentId = request.DepartmentId ?? employee.DepartmentId;
                 employee.ManagerId = request.ManagerId ?? employee.ManagerId;
 
-                // Only SuperAdmin can change roles
-                if (request.Role != null && callerRole == "SuperAdmin")
-                    employee.Role = request.Role;
+                // Role change rules:
+                // SuperAdmin → can assign any role
+                // DepartmentHead → can promote to "Manager" within their department
+                if (request.Role != null)
+                {
+                    if (callerRole == "SuperAdmin")
+                    {
+                        employee.Role = request.Role;
+                    }
+                    else if (callerRole == "DepartmentHead" && request.Role == "Manager")
+                    {
+                        var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
+                        if (caller?.DepartmentId == employee.DepartmentId)
+                            employee.Role = "Manager";
+                    }
+                }
 
                 _db.Employees.Update(employee);
                 await _db.SaveChangesAsync();

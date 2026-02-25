@@ -9,7 +9,7 @@ public class EmployeeUpdateRequestDto
     public int? DepartmentId { get; set; }
     public int? ManagerId { get; set; }
 
-    [System.ComponentModel.DataAnnotations.RegularExpression("^(Employee|HR|SuperAdmin)$",
-        ErrorMessage = "Role must be 'Employee', 'HR', or 'SuperAdmin'")]
+    [System.ComponentModel.DataAnnotations.RegularExpression("^(Employee|Manager|HR|DepartmentHead|SuperAdmin)$",
+        ErrorMessage = "Role must be 'Employee', 'Manager', 'HR', 'DepartmentHead', or 'SuperAdmin'")]
     public string? Role { get; set; }
 }

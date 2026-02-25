@@ -34,6 +34,19 @@ public class EmployeeLeaveDbContext : DbContext
             .HasForeignKey(e => e.DepartmentId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Department -> DepartmentHead
+        modelBuilder.Entity<DepartmentModel>()
+            .HasOne(d => d.DepartmentHead)
+            .WithMany()
+            .HasForeignKey(d => d.DepartmentHeadId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // One employee can head only one department
+        modelBuilder.Entity<DepartmentModel>()
+            .HasIndex(d => d.DepartmentHeadId)
+            .IsUnique()
+            .HasFilter("[DepartmentHeadId] IS NOT NULL");
+
         // Employee -> Manager (self-referencing)
         modelBuilder.Entity<EmployeeModel>()
             .HasOne(e => e.Manager)

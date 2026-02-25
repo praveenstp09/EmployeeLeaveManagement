@@ -24,8 +24,8 @@ namespace EmpLeave.Controllers
             try
             {
                 var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole is not "SuperAdmin" and not "HR")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin or HR can allocate leave balances" });
+                if (callerRole is not "SuperAdmin" and not "HR" and not "DepartmentHead")
+                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin, DepartmentHead, or HR can allocate leave balances" });
 
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == request.EmployeeId && e.IsActive);
@@ -33,13 +33,13 @@ namespace EmpLeave.Controllers
                 if (employee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found or inactive" });
 
-                // HR can only allocate for employees in their own department
-                if (callerRole == "HR")
+                // HR and DepartmentHead can only allocate for employees in their own department
+                if (callerRole is "HR" or "DepartmentHead")
                 {
                     var callerId = HttpContext.Items["EmployeeId"] as int?;
                     var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
                     if (caller == null || caller.DepartmentId != employee.DepartmentId)
-                        return Ok(new ApiResponseDto<object> { Success = false, Message = "HR can only allocate leave for employees in their department" });
+                        return Ok(new ApiResponseDto<object> { Success = false, Message = "You can only allocate leave for employees in your department" });
                 }
 
                 var leaveType = await _db.LeaveTypes
@@ -161,18 +161,20 @@ namespace EmpLeave.Controllers
                 if (employee == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Employee not found" });
 
-                // Allow: self, SuperAdmin, HR in same department, or direct manager
+                // Allow: self, SuperAdmin, HR in same department, DepartmentHead of same department, or direct manager
                 bool isSelf = callerId == empId;
                 bool isSuperAdmin = callerRole == "SuperAdmin";
                 bool isManager = employee.ManagerId == callerId;
                 bool isDeptHR = false;
-                if (callerRole == "HR")
+                bool isDeptHead = false;
+                if (callerRole is "HR" or "DepartmentHead")
                 {
                     var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
-                    isDeptHR = caller?.DepartmentId == employee.DepartmentId;
+                    if (callerRole == "HR") isDeptHR = caller?.DepartmentId == employee.DepartmentId;
+                    if (callerRole == "DepartmentHead") isDeptHead = caller?.DepartmentId == employee.DepartmentId;
                 }
 
-                if (!isSelf && !isSuperAdmin && !isManager && !isDeptHR)
+                if (!isSelf && !isSuperAdmin && !isManager && !isDeptHR && !isDeptHead)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "You are not authorized to view this employee's leave balances" });
 
                 int currentYear = DateTime.UtcNow.Year;

@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
 using EmpLeave.Dtos.ApiDto;
 using EmpLeave.Dtos.DepartmentDtos;
+using System.Security.Claims;
 
 namespace EmpLeave.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class DepartmentController : ControllerBase
     {
         private readonly EmployeeLeaveDbContext _db;
@@ -18,14 +21,12 @@ namespace EmpLeave.Controllers
             _db = db;
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpPost]
-        public async Task<IActionResult> CreateDepartment([FromBody] DepartmentModel request)
+        public async Task<IActionResult> CreateDepartment([FromBody] DepartmentRequestDto request)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can create departments" });
 
                 if (string.IsNullOrWhiteSpace(request.DepartmentName))
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department name is required" });
@@ -44,11 +45,11 @@ namespace EmpLeave.Controllers
                 _db.Departments.Add(newDepartment);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponseDto<DepartmentModel>
+                return Ok(new ApiResponseDto<DepartmentResponseDto>
                 {
                     Success = true,
                     Message = "Department created successfully",
-                    Data = newDepartment
+                    Data = MapToResponse(newDepartment)
                 });
             }
             catch (Exception ex)
@@ -63,16 +64,12 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
-
                 var departments = await _db.Departments.ToListAsync();
 
-                return Ok(new ApiResponseDto<List<DepartmentModel>>
+                return Ok(new ApiResponseDto<List<DepartmentResponseDto>>
                 {
                     Success = true,
-                    Data = departments
+                    Data = departments.Select(MapToResponse).ToList()
                 });
             }
             catch (Exception ex)
@@ -87,10 +84,6 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
-
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
                     .FirstOrDefaultAsync(d => d.DepartmentId == departmentId);
@@ -98,10 +91,10 @@ namespace EmpLeave.Controllers
                 if (department == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department not found" });
 
-                return Ok(new ApiResponseDto<DepartmentModel>
+                return Ok(new ApiResponseDto<DepartmentResponseDto>
                 {
                     Success = true,
-                    Data = department
+                    Data = MapToResponse(department)
                 });
             }
             catch (Exception ex)
@@ -111,14 +104,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDepartment(string id, [FromBody] DepartmentModel request)
+        public async Task<IActionResult> UpdateDepartment(string id, [FromBody] DepartmentRequestDto request)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can update departments" });
 
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
@@ -141,11 +132,11 @@ namespace EmpLeave.Controllers
                 _db.Departments.Update(department);
                 await _db.SaveChangesAsync();
 
-                return Ok(new ApiResponseDto<DepartmentModel>
+                return Ok(new ApiResponseDto<DepartmentResponseDto>
                 {
                     Success = true,
                     Message = "Department updated successfully",
-                    Data = department
+                    Data = MapToResponse(department)
                 });
             }
             catch (Exception ex)
@@ -155,14 +146,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDepartment(string id)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can delete departments" });
 
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
@@ -198,14 +187,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpPut("{id}/assign-head")]
         public async Task<IActionResult> AssignDepartmentHead(string id, [FromBody] AssignDepartmentHeadDto request)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can assign department heads" });
 
                 int departmentId = int.Parse(id);
                 var department = await _db.Departments
@@ -266,6 +253,16 @@ namespace EmpLeave.Controllers
                 Console.WriteLine(ex);
                 return Ok(new ApiResponseDto<object> { Success = false, Message = ex.Message });
             }
+        }
+
+        private static DepartmentResponseDto MapToResponse(DepartmentModel department)
+        {
+            return new DepartmentResponseDto
+            {
+                DepartmentId = department.DepartmentId,
+                DepartmentName = department.DepartmentName,
+                DepartmentHeadId = department.DepartmentHeadId
+            };
         }
     }
 }

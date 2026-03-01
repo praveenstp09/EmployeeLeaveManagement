@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
@@ -6,11 +7,13 @@ using EmpLeave.Services;
 using EmpLeave.Dtos.EmployeeDtos;
 using EmpLeave.Dtos.ApiDto;
 using EmpLeave.Services.SupabaseServices;
+using System.Security.Claims;
 
 namespace EmpLeave.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class EmployeeController : ControllerBase
     {
         private readonly EmployeeLeaveDbContext _db;
@@ -24,6 +27,7 @@ namespace EmpLeave.Controllers
             _fileStorageService = fileStorageService;
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] EmployeeLoginRequestDto request)
         {
@@ -53,6 +57,7 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] EmployeeRegisterRequestDto request)
         {
@@ -70,26 +75,10 @@ namespace EmpLeave.Controllers
                 if (department == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Department not found" });
 
-                // Role assignment rules:
-                // SuperAdmin → can assign any role
-                // DepartmentHead → can assign "Manager" to employees in their department
-                var callerRole = HttpContext.Items["Role"] as string;
-                var callerId = HttpContext.Items["EmployeeId"] as int?;
-                string assignedRole = request.Role;
-
-                if (assignedRole != "Employee" && callerRole != "SuperAdmin")
-                {
-                    if (assignedRole == "Manager" && callerRole == "DepartmentHead" && callerId != null)
-                    {
-                        var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
-                        if (caller == null || caller.DepartmentId != request.DepartmentId)
-                            assignedRole = "Employee"; // Not same department, demote to Employee
-                    }
-                    else
-                    {
-                        assignedRole = "Employee"; // Not authorized for this role
-                    }
-                }
+                // First user can register with any role (initial SuperAdmin setup)
+                // All subsequent anonymous registrations are forced to "Employee"
+                var hasAnyEmployee = await _db.Employees.AnyAsync();
+                string assignedRole = !hasAnyEmployee ? request.Role : "Employee";
 
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
@@ -104,7 +93,7 @@ namespace EmpLeave.Controllers
                     IsActive = true,
                     Role = assignedRole,
                     DepartmentId = request.DepartmentId,
-                    ManagerId = request.ManagerId
+                    ManagerId = request.ManagerId == 0 ? null : request.ManagerId
                 };
 
                 _db.Employees.Add(newEmployee);
@@ -131,10 +120,6 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
-
                 int Id = int.Parse(id);
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == Id);
@@ -160,10 +145,6 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
-
                 var employees = await _db.Employees
                     .Where(e => e.IsActive)
                     .ToListAsync();
@@ -189,8 +170,8 @@ namespace EmpLeave.Controllers
             int Id = int.Parse(id);
             try
             {
-                var callerId = HttpContext.Items["EmployeeId"] as int?;
-                var callerRole = HttpContext.Items["Role"] as string;
+                var callerId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
+                var callerRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
                 if (callerId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
@@ -251,14 +232,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeactivateEmployee(string id)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can deactivate employees" });
 
                 int Id = int.Parse(id);
                 var employee = await _db.Employees
@@ -285,12 +264,13 @@ namespace EmpLeave.Controllers
         }
 
         [HttpPost("profileImage")]
-        public async Task<IActionResult> UploadProfileImage([FromForm] int employeeId, [FromForm] IFormFile file)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadProfileImage([FromForm] int employeeId, IFormFile file)
         {
             try
             {
-                var callerId = HttpContext.Items["EmployeeId"] as int?;
-                var callerRole = HttpContext.Items["Role"] as string;
+                var callerId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
+                var callerRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
                 if (callerId == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 

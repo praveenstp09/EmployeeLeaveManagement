@@ -24,45 +24,16 @@ namespace EmpLeave.Services
             {
                 Subject = new ClaimsIdentity(
                 [
-                    new Claim("id", employeeId.ToString()),
-                    new Claim("email", email),
-                    new Claim("userName", userName),
-                    new Claim("role", role)
+                    new Claim(ClaimTypes.NameIdentifier, employeeId.ToString()),
+                    new Claim(ClaimTypes.Email, email),
+                    new Claim(ClaimTypes.Name, userName),
+                    new Claim(ClaimTypes.Role, role)
                 ]),
                 Expires = DateTime.UtcNow.AddMinutes(60),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
-        }
-
-        public TokenInfo? ValidateToken(string token)
-        {
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.ASCII.GetBytes(_Secret);
-                tokenHandler.ValidateToken(token, new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ClockSkew = TimeSpan.Zero
-                }, out SecurityToken validatedToken);
-                var jwtToken = (JwtSecurityToken)validatedToken;
-                var employeeIdStr = jwtToken.Claims.First(x => x.Type == "id").Value;
-                var role = jwtToken.Claims.FirstOrDefault(x => x.Type == "role")?.Value ?? "Employee";
-                if (int.TryParse(employeeIdStr, out int employeeId))
-                {
-                    return new TokenInfo(employeeId, role);
-                }
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
         }
     }
 }

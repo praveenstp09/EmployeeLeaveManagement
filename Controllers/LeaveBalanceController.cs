@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
 using EmpLeave.Dtos.ApiDto;
 using EmpLeave.Dtos.LeaveBalanceDtos;
+using System.Security.Claims;
 
 namespace EmpLeave.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class LeaveBalanceController : ControllerBase
     {
         private readonly EmployeeLeaveDbContext _db;
@@ -18,14 +21,13 @@ namespace EmpLeave.Controllers
             _db = db;
         }
 
+        [Authorize(Roles = "SuperAdmin,HR,DepartmentHead")]
         [HttpPost("allocate")]
         public async Task<IActionResult> AllocateLeaveBalance([FromBody] LeaveBalanceAllocateDto request)
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole is not "SuperAdmin" and not "HR" and not "DepartmentHead")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin, DepartmentHead, or HR can allocate leave balances" });
+                var callerRole = User.FindFirst(ClaimTypes.Role)?.Value;
 
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == request.EmployeeId && e.IsActive);
@@ -36,7 +38,8 @@ namespace EmpLeave.Controllers
                 // HR and DepartmentHead can only allocate for employees in their own department
                 if (callerRole is "HR" or "DepartmentHead")
                 {
-                    var callerId = HttpContext.Items["EmployeeId"] as int?;
+                    var callerIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    var callerId = callerIdStr != null ? int.Parse(callerIdStr) : (int?)null;
                     var caller = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == callerId);
                     if (caller == null || caller.DepartmentId != employee.DepartmentId)
                         return Ok(new ApiResponseDto<object> { Success = false, Message = "You can only allocate leave for employees in your department" });
@@ -107,9 +110,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
+                var employeeIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (employeeIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? employeeId = int.Parse(employeeIdStr);
 
                 int currentYear = DateTime.UtcNow.Year;
 
@@ -149,10 +153,11 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var callerId = HttpContext.Items["EmployeeId"] as int?;
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerId == null)
+                var callerIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var callerRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (callerIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? callerId = int.Parse(callerIdStr);
 
                 int empId = int.Parse(employeeId);
                 var employee = await _db.Employees
@@ -207,14 +212,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpPost("allocate-all")]
         public async Task<IActionResult> AllocateBalancesForAllEmployees()
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can bulk-allocate leave balances" });
 
                 int currentYear = DateTime.UtcNow.Year;
 

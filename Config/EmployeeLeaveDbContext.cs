@@ -45,7 +45,7 @@ public class EmployeeLeaveDbContext : DbContext
         modelBuilder.Entity<DepartmentModel>()
             .HasIndex(d => d.DepartmentHeadId)
             .IsUnique()
-            .HasFilter("[DepartmentHeadId] IS NOT NULL");
+            .HasFilter("\"DepartmentHeadId\" IS NOT NULL");
 
         // Employee -> Manager (self-referencing)
         modelBuilder.Entity<EmployeeModel>()

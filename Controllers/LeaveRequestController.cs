@@ -1,14 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using EmpLeave.Config;
 using EmpLeave.Models;
 using EmpLeave.Dtos.ApiDto;
 using EmpLeave.Dtos.LeaveRequestDtos;
+using System.Security.Claims;
 
 namespace EmpLeave.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class LeaveRequestController : ControllerBase
     {
         private readonly EmployeeLeaveDbContext _db;
@@ -23,9 +26,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
+                var employeeIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (employeeIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? employeeId = int.Parse(employeeIdStr);
 
                 var employee = await _db.Employees
                     .FirstOrDefaultAsync(e => e.EmployeeId == employeeId && e.IsActive);
@@ -119,9 +123,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
+                var employeeIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (employeeIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? employeeId = int.Parse(employeeIdStr);
 
                 var requests = await _db.LeaveRequests
                     .Where(lr => lr.EmployeeId == employeeId)
@@ -160,8 +165,8 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var callerId = HttpContext.Items["EmployeeId"] as int?;
-                if (callerId == null)
+                var callerIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (callerIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
 
                 int requestId = int.Parse(id);
@@ -196,10 +201,11 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var approverId = HttpContext.Items["EmployeeId"] as int?;
-                var approverRole = HttpContext.Items["Role"] as string;
-                if (approverId == null)
+                var approverIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var approverRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (approverIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? approverId = int.Parse(approverIdStr);
 
                 var approver = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == approverId);
                 if (approver == null)
@@ -299,10 +305,11 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var approverId = HttpContext.Items["EmployeeId"] as int?;
-                var approverRole = HttpContext.Items["Role"] as string;
-                if (approverId == null)
+                var approverIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var approverRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                if (approverIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? approverId = int.Parse(approverIdStr);
 
                 int requestId = int.Parse(id);
                 var leaveRequest = await _db.LeaveRequests
@@ -412,9 +419,10 @@ namespace EmpLeave.Controllers
         {
             try
             {
-                var employeeId = HttpContext.Items["EmployeeId"] as int?;
-                if (employeeId == null)
+                var employeeIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (employeeIdStr == null)
                     return Ok(new ApiResponseDto<object> { Success = false, Message = "Unauthorized" });
+                int? employeeId = int.Parse(employeeIdStr);
 
                 int requestId = int.Parse(id);
                 var leaveRequest = await _db.LeaveRequests
@@ -462,14 +470,12 @@ namespace EmpLeave.Controllers
             }
         }
 
+        [Authorize(Roles = "SuperAdmin")]
         [HttpGet("all")]
         public async Task<IActionResult> GetAllLeaveRequests()
         {
             try
             {
-                var callerRole = HttpContext.Items["Role"] as string;
-                if (callerRole != "SuperAdmin")
-                    return Ok(new ApiResponseDto<object> { Success = false, Message = "Only SuperAdmin can view all leave requests" });
 
                 var requests = await _db.LeaveRequests
                     .OrderByDescending(lr => lr.CreatedAt)
